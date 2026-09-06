@@ -1,0 +1,524 @@
+options
+{
+  static = false;
+}
+PARSER_BEGIN(Gramatica)
+import java.io.*;
+
+class Gramatica
+{    
+  Tabelas Tabela = new Tabelas (); // Para o gerenciamento de variáveis
+  public static void main (String[] args) throws ParseException
+  {  
+   try
+   {      
+    Gramatica analisador = new Gramatica (System.in);
+    analisador.Programa();
+    System.out.println("Compilado....");
+  }   
+  catch(TokenMgrError e) {
+  System.err.println("Lexical Error:\n" + e.getMessage()); 
+  }
+  catch(ParseException e) {
+  System.err.println("Syntactic Error:\n" + e.getMessage());
+  }
+  catch(Exception e) {
+  System.err.println("Semantic error:\n" + e.getMessage()  );  
+  e.printStackTrace();
+  }
+ }  
+}
+PARSER_END(Gramatica)
+TOKEN:
+{
+<INICIO: "$BEGIN_PROGRAM">{
+    System.out.println("BEGIN_PROGRAM: "+image);
+}
+|
+<FIM: "$END_PROGRAM">{
+    System.out.println("END_PROGRAM: "+image);
+}
+|
+<TIPO: "INT"|"BOOL"|"DOUBLE"|"CHAR"|"STRING"|"FLOAT">{
+    System.out.println("TIPO: "+image);
+}
+|
+<ELSE: "else">{
+    System.out.println("ELSE: "+image);
+}
+|
+<IF: "if">{
+    System.out.println("IF: "+image);
+}
+|
+<FOR: "for" >{
+ System.out.println("Condicional: "+image);
+}
+|
+<WHILE: "while">{
+    System.out.println("WHILE: "+image);
+}
+|
+<OR: "||">{
+    System.out.println("OR: "+image);
+}
+|
+<ORB: "|">{
+    System.out.println("ORB: "+image);
+}
+|
+<AND: "&&">{
+    System.out.println("AND: "+image);
+}
+|
+<ANDB: "&">{
+    System.out.println("ANDB: "+image);
+}
+|
+<XOR: "^">{
+    System.out.println("XOR: "+image);
+}
+|
+<NEGACAO: "!">{
+    System.out.println("NEGACAO: "+image);
+}
+|
+<THEN: "then">{
+    System.out.println("THEN: "+image);
+}
+|
+<SENTENCA_BOOLEANA: "true" | "false">{
+    System.out.println("SENTENCA_BOOLEANA: "+image);
+}
+|
+<IDENTIFICADOR: <LETRA> (<LETRA>|<DIGITO>)* >
+ {
+ System.out.println("Identificador: "+image);
+  }
+|
+<OPERADOR: ">"|"<"|">="|"<="|"=="|"!=">{
+    System.out.println("OPERADOR: "+image);
+}
+|
+<STRING: <ASPAS> (<LETRA>)+ <ASPAS> >{
+    System.out.println("STRING: "+image);
+}
+|
+<LETRA: (["a"-"z"] |  ["A"-"Z"]) >
+ { 
+    System.out.println("Letra: "+image);
+  }
+|
+<NUM: ("-")?<DIGITO><PONTO><DIGITO>>
+ {
+ System.out.println("Numero: "+image);
+ }
+|
+<DIGITO: ("-")?(["0"-"9"])+ >
+ {
+ System.out.println("Digito: "+image);
+  }
+|
+<OPERADOR_TERNARIO: ":=">
+|
+<DOIS_PONTOS: ":" >
+|
+<INTERROGACAO: "?" >
+|
+<PONTO: "." >{
+    System.out.println("PONTO: "+image);
+}
+|
+<ATRIB: "="  >{
+    System.out.println("ATRIB: "+image);
+}
+|
+<ABRECH: "{" >{
+    System.out.println("ABRECH: "+image);
+}
+|
+<FECHACH: "}">{
+    System.out.println("FECHACH: "+image);
+}
+|
+<ABREPA: "(">{
+    System.out.println("ABREPA: "+image);
+}
+|
+<FECHPA: ")">{
+    System.out.println("FECHPA: "+image);
+}
+|
+<ASPAS: "'">{
+    System.out.println("ASPAS: " + image);
+}
+|
+<MAISMAIS: "++"|"--">{
+ System.out.println("MAISMAIS: "+image);
+}
+|
+<SINAL:  "+"|"-" >
+|
+<PONTOVIRGULA: ";">{
+ System.out.println("PONTOVIRGULA: "+image);
+}
+}
+
+SKIP:
+{
+" " | "\r\n" | "\t"
+}
+
+//////////////////////////////////////INICIO//////////////////////////////
+void Programa():{}
+{
+<INICIO> Variaveis() (Comandos(true))* <FIM> <EOF> {Tabela.imprime();}
+}
+///////////////////////////////////////////////////////////////////////////
+void Variaveis():{Token var=null, tipo=null;}
+{
+(tipo = <TIPO> var=<IDENTIFICADOR> { 
+    if(tipo.image.equals("BOOL")) Tabela.insere (var.image,"false",tipo.image) ;
+    else if(tipo.image.equals("STRING") || tipo.image.equals("CHAR")) Tabela.insere (var.image, null, tipo.image) ;
+    else Tabela.insere (var.image, "0" ,tipo.image);
+    }
+    )+
+}
+
+void Comandos(boolean valida):{}{
+    LOOKAHEAD(3)
+    Atribuicao(valida) | Condicional(valida) | OperacaoTernaria(valida) | Iterativo(valida)
+}
+    
+void Atribuicao(boolean valida):{ 
+    Token var = null, valor = null, flutuante = null, bool = null, ident = null, string = null, charac = null; 
+    String result_pesq_tipo_var = "";
+} 
+{
+    (var = <IDENTIFICADOR>) <ATRIB> 
+    (
+        valor = <DIGITO> {
+            result_pesq_tipo_var = Tabela.pesquisa_tipo(var.image);
+            if(result_pesq_tipo_var.equals("INT") && valida)
+                Tabela.insere(var.image, valor.image, "INT");
+            else if(valida){
+                int currentLine = new Throwable().getStackTrace()[0].getLineNumber();
+                System.err.println("Semantic error: Attempted assignment between different types of variable in line " + currentLine + ", Value:" + valor.image);
+            }
+        } 
+        |
+        flutuante = <NUM> {
+            result_pesq_tipo_var = Tabela.pesquisa_tipo(var.image);
+            if(result_pesq_tipo_var.equals("FLOAT") && valida)
+                Tabela.insere(var.image, flutuante.image, "FLOAT");
+            else if(result_pesq_tipo_var.equals("DOUBLE") && valida)
+                Tabela.insere(var.image, flutuante.image, "DOUBLE");
+            else if(valida) {
+                int currentLine = new Throwable().getStackTrace()[0].getLineNumber();
+                System.err.println("Semantic error: Attempted assignment between different types of variable in line " + currentLine + ", Value:" + flutuante.image);
+            }
+        }
+        |
+        bool = <SENTENCA_BOOLEANA> {
+            result_pesq_tipo_var = Tabela.pesquisa_tipo(var.image);
+            if(result_pesq_tipo_var.equals("BOOL") && valida)
+                Tabela.insere(var.image, bool.image, "BOOL");
+            else if(valida){
+                int currentLine = new Throwable().getStackTrace()[0].getLineNumber();
+                System.err.println("Semantic error: Attempted assignment between different types of variable in line " + currentLine + ", Value:" + bool.image);
+            }
+        }
+        |
+        ident = <IDENTIFICADOR>{
+            result_pesq_tipo_var = Tabela.pesquisa_tipo(var.image);
+            if(result_pesq_tipo_var.equals(Tabela.pesquisa_tipo(ident.image)) && valida){
+                Tabela.insere(var.image, Tabela.pesquisa_valor(ident.image), result_pesq_tipo_var);
+            }
+            else if(valida){
+                int currentLine = new Throwable().getStackTrace()[0].getLineNumber();
+                System.err.println("Semantic error: Attempted assignment between different types of variable in line " + currentLine + ", Value:" + ident.image);
+            }
+        }
+        |
+        string = <STRING>{
+            result_pesq_tipo_var = Tabela.pesquisa_tipo(var.image);
+            if(result_pesq_tipo_var.equals("STRING") && valida){
+                Tabela.insere(var.image, string.image, result_pesq_tipo_var);
+            }
+            else if(valida){
+                int currentLine = new Throwable().getStackTrace()[0].getLineNumber();
+                System.err.println("Semantic error: Attempted assignment between different types of variable in line " + currentLine + ", Value:" + ident.image);
+            }
+        }
+        |
+        charac = <LETRA>{
+            result_pesq_tipo_var = Tabela.pesquisa_tipo(var.image);
+            if(result_pesq_tipo_var.equals("CHAR") && valida){
+                Tabela.insere(var.image, charac.image, result_pesq_tipo_var);
+            }
+            else if(valida){
+                int currentLine = new Throwable().getStackTrace()[0].getLineNumber();
+                System.err.println("Semantic error: Attempted assignment between different types of variable in line " + currentLine + ", Value:" + ident.image);
+            }
+        }
+    )
+}
+Token Expressao():{Token var1 = null, var2 = null, op = null, stri = null; double num_a = 0.0, num_b = 0.0; boolean a = false, b = false;}{
+    var1=fator() ( op=<OPERADOR> var2 = fator(){
+        if(op!=null){
+            boolean isNumeric1 = var1.image.matches("[+-]?\\d*(\\.\\d+)?");
+            boolean isNumeric2 = var2.image.matches("[+-]?\\d*(\\.\\d+)?");
+            if(isNumeric1 && isNumeric2){
+                num_a = Double.parseDouble(var1.image);
+                num_b = Double.parseDouble(var2.image);
+                if(op.image.equals(">")) a = num_a > num_b;
+                else if(op.image.equals(">=")) a = num_a >= num_b;
+                else if(op.image.equals("<")) a = num_a < num_b;
+                else if(op.image.equals("<=")) a = num_a <= num_b;
+                else if(op.image.equals("==")) a = num_a == num_b;
+                else if(op.image.equals("!=")) a = num_a != num_b;
+            }
+            else{
+                if(op.image.equals("==")) a = var1.image.equals(var2.image);
+                else{
+                    String str1 = var1.image, str2 = var2.image;
+                    int result = str1.compareTo(str2);
+                    System.out.println("RESULTADO = "+result);
+                    if (result < 0 && op.image.equals("<")) {
+                        a = true;
+                    } else if (result == 0 && (op.image.equals("<=") || op.image.equals(">=") || op.image.equals("=="))){
+                        a = true;
+                    } else if(result > 0 && op.image.equals(">")){
+                        a = true;
+                    }
+                    else{
+                        a=false;
+                    }
+                }
+            }
+        }
+        if (a)
+            var1.image="true";
+        else
+            var1.image ="false";
+            
+        }
+        )*
+        {return var1;}
+    }
+
+void Condicional(boolean valida):{Token val = null; boolean valida2 = false;}{
+    <IF> <ABREPA> val = Or() {
+        if(val.image.equals("true")) valida2=true;
+        else valida2=false;
+    } <FECHPA> <THEN> <ABRECH> (Comandos(valida2 && valida))+ <FECHACH> [<ELSE> <ABRECH> (Comandos((!valida2) && valida))+ <FECHACH>]
+}
+
+void OperacaoTernaria(boolean valida) :{Token var=null, cond=null, val1=null, val2=null;}
+{
+    var = <IDENTIFICADOR> <OPERADOR_TERNARIO> cond = Expressao() <INTERROGACAO>  val1 = <IDENTIFICADOR> <DOIS_PONTOS> val2 = <IDENTIFICADOR>
+    {
+        String varName = var.image;
+ 	if(valida){
+        boolean condicao;
+        if (cond.image=="true")
+            condicao=true;
+        else
+            condicao=false;		
+            String valorVerdadeiro = Tabela.pesquisa_valor(val1.image);
+            String valorFalso = Tabela.pesquisa_valor(val2.image);
+            
+            String resultado = condicao ? valorVerdadeiro : valorFalso;
+            Tabela.insere(varName, resultado, Tabela.pesquisa_tipo(varName));
+        }
+    }
+}
+
+Token AndBitwise():{Token tk=null, d=null, r=null, m=null; boolean a=true, b=true;}{ 
+    tk= Expressao() (  m= <ANDB>  d=Expressao(){ 
+    if (m!=null){
+        if(m.image.equals("&")){
+            if(tk.image.equals("true")) a=true;
+            else a=false;
+            if (d.image.equals("true")) b=true;
+            else b=false;
+            a = a & b;
+        }
+    }
+    if (a)
+    tk.image="true";
+    else
+    tk.image ="false";
+    }
+    )*
+    {return tk;}
+}
+
+Token xOrBitwise():{Token tk=null, d=null, r=null, m=null; boolean a=true, b=true;}{ 
+    tk= AndBitwise() (  m= <XOR>  d=AndBitwise(){ 
+    if (m!=null){
+        if(m.image.equals("^")){
+            if(tk.image.equals("true")) a=true;
+            else a=false;
+            if (d.image.equals("true")) b=true;
+            else b=false;
+            a = a ^ b;
+        }
+    }
+    if (a)
+    tk.image="true";
+    else
+    tk.image ="false";
+    }
+    )*
+    {return tk;}
+}
+
+Token OrBitwise():{Token tk=null, d=null, r=null, m=null; boolean a=true, b=true;}{ 
+    tk= xOrBitwise() (  m= <ORB>  d=xOrBitwise(){ 
+    if (m!=null){
+        if(m.image.equals("|")){
+            if(tk.image.equals("true")) a=true;
+            else a=false;
+            if (d.image.equals("true")) b=true;
+            else b=false;
+            a = a | b;
+        }
+    }
+    if (a)
+    tk.image="true";
+    else
+    tk.image ="false";
+    }
+    )*
+    {return tk;}
+}
+
+Token And():{Token tk=null, d=null, r=null, m=null; boolean a=true, b=true;}{ 
+    tk= OrBitwise() ( m=<AND> d=OrBitwise(){ 
+    if (m!=null){
+        if(m.image.equals("&&")){
+            if(tk.image.equals("true")) a=true;
+            else a=false;
+            if (d.image.equals("true")) b=true;
+            else b=false;
+            a = a && b;
+        }
+    }
+    if (a)
+    tk.image="true";
+    else
+    tk.image ="false";
+    }
+    )*
+    {return tk;}
+}
+
+Token Or():{Token tk = null, d = null, n = null; boolean a = true, b= true;}{
+    tk=And()  (n=<OR> d=And()
+    {
+    if (n!=null)
+    {
+        if(n.image.equals("||")){
+            if (tk.image.equals("true"))
+                a=true;
+            else
+                a=false;
+            
+            if (d.image.equals("true"))
+            b=true;
+            else
+                b=false;
+            a= a || b;
+        }
+    }
+    if (a)
+    tk.image="true";
+    else
+    tk.image="false";
+    }
+    )*
+    {return tk;}
+}
+
+Token fator():{Token num = null, flutuante = null, var = null, bool = null, strings = null, neg = null; String valor = null, tipo = null;}{
+    ((neg=<NEGACAO>)? var = <IDENTIFICADOR>{
+        valor = Tabela.pesquisa_valor(var.image);
+        if(neg!=null){
+            tipo = Tabela.pesquisa_tipo(var.image);
+            if(tipo.equals("BOOL")){
+                if(var.equals("true")) var.image = "false";
+                else var.image = "true";
+            }
+        }
+        else if( valor != "") var.image = valor;
+        else{
+            System.err.println("Semantic error: value null in variable");
+            System.exit(1);
+        }
+        return var;
+    }) | num = <DIGITO> {return num;} | flutuante = <NUM> {return flutuante;} | bool = <SENTENCA_BOOLEANA> {return bool;} | strings = <STRING> {return strings;}
+}
+
+void Iterativo(boolean valida): {Token val = null, condi = null, op = null, op2 = null, var1 = null, var2 = null, var3 = null, var4 = null, var5 = null, var6=null, var7=null, var8 = null, operacao = null, var9 = null, numero=null; boolean valida2 = false, a = false; double valor1 = 0.0, valor2 = 0.0;}{
+    <FOR> <ABREPA> Atribuicao(valida) <PONTOVIRGULA> var1 = <IDENTIFICADOR> op=<OPERADOR> (var2 = <IDENTIFICADOR> | var3 = <NUM> | var3 = <DIGITO>) <PONTOVIRGULA>  var8 = <IDENTIFICADOR> (operacao = <MAISMAIS> | operacao = <SINAL> <ATRIB> (numero = <NUM>| var9 = <IDENTIFICADOR> | numero = <DIGITO>)) <FECHPA> <ABRECH> var4 = <IDENTIFICADOR> <ATRIB> 
+    var5 = <IDENTIFICADOR> op2 = <SINAL> (var6 = <IDENTIFICADOR> | var7 = <NUM> | var7= <DIGITO>) <PONTOVIRGULA><FECHACH>{
+      if(valida){
+        if(var2!=null){
+          valor2 = Double.parseDouble(Tabela.pesquisa_valor(var2.image));
+        }
+        else if(var3!=null){
+          valor2 = Double.parseDouble(var3.image);
+        }
+        while (true){
+          valor1 = Double.parseDouble(Tabela.pesquisa_valor(var1.image));
+          if(op.image.equals(">"))
+            a = valor1 > valor2;
+          else if (op.image.equals("<"))
+            a = valor1 < valor2; 
+          else if (op.image.equals(">="))
+            a= valor1  >= valor2;
+          else if (op.image.equals("<="))
+            a= valor1  <= valor2;
+          else if (op.image.equals("=="))
+            a= valor1  == valor2;
+          else a = valor1 != valor2;
+          if(a==false) break;
+          else{
+            if(var4.image.equals(var5.image)){
+              if(op2.image.equals("+")){
+                if(var6==null) Tabela.insere(var4.image, String.valueOf(Double.parseDouble(Tabela.pesquisa_valor(var4.image)) + Double.parseDouble(var7.image)) , Tabela.pesquisa_tipo(var4.image));
+                else Tabela.insere(var4.image, String.valueOf(Double.parseDouble(Tabela.pesquisa_valor(var4.image)) + Double.parseDouble(Tabela.pesquisa_valor(var6.image))) , Tabela.pesquisa_tipo(var4.image));
+              }
+              else{
+                if(var6==null) Tabela.insere(var4.image, String.valueOf(Double.parseDouble(Tabela.pesquisa_valor(var4.image)) - Double.parseDouble(var7.image)) , Tabela.pesquisa_tipo(var4.image));
+                else Tabela.insere(var4.image, String.valueOf(Double.parseDouble(Tabela.pesquisa_valor(var4.image)) - Double.parseDouble(Tabela.pesquisa_valor(var6.image))) , Tabela.pesquisa_tipo(var4.image));
+              }
+            }
+          }
+          Iteracao(true, operacao, var8, numero, var9);
+        }
+      }
+    }
+}
+
+void Iteracao(boolean ini,Token operacao, Token var, Token numero, Token var2):{double valor = 0.0;}
+{{
+    if(ini){
+      valor = Double.parseDouble(Tabela.pesquisa_valor(var.image));
+      if(operacao.image.equals("++")){
+        valor++;
+      }
+      else if(operacao.image.equals("--")){
+        valor--;
+      }
+      else if(operacao.image.equals("+")){
+        valor = valor + Double.parseDouble(numero.image);
+      }
+      else if(operacao.image.equals("-")){
+        valor = valor - Double.parseDouble(numero.image);
+      }
+      Tabela.insere(var.image, String.valueOf(valor), Tabela.pesquisa_tipo(var.image));
+    }
+  }
+}

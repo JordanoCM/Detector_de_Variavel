@@ -1,0 +1,32 @@
+$BEGIN_PROGRAM 
+BOOL Valor1
+BOOL Valor2 
+INT X 
+INT Y 
+INT Z 
+INT K 
+INT L 
+INT I 
+INT soma 
+FLOAT W 
+STRING Nome 
+soma=0 
+X=-5 
+K=9 
+L=12 
+Y=17 
+Z=15 
+W=3.0
+Nome = 'Jordano' 
+Valor1=false 
+X:=Y>X?K:L 
+if ( Valor2 || X<Z && Y>Z ) then { 
+  Z=X 
+}
+else { 
+W=50.12 
+} 
+for (I=K;I>=1;I--){ 
+soma=soma+I;
+} 
+$END_PROGRAM
